@@ -1,0 +1,118 @@
+name: manufacturing-qc
+version: 1.0.0
+description: Real-world manufacturing quality control environment for AI agents
+author: OpenEnv Hackathon Participant
+license: MIT
+framework: openenv
+tags:
+  - manufacturing
+  - quality-control
+  - industrial
+  - real-world
+  - openenv
+
+tasks:
+  - name: basic_inspection
+    difficulty: easy
+    description: Inspect products and correctly identify obvious defects
+    max_steps: 15
+    success_criteria:
+      min_accuracy: 0.75
+      min_defects_caught: 5
+      max_false_positives: 2
+  
+  - name: optimized_throughput
+    difficulty: medium
+    description: Balance quality control with production throughput efficiently
+    max_steps: 25
+    success_criteria:
+      min_accuracy: 0.80
+      min_throughput: 20
+      max_false_negatives: 3
+      target_threshold: 0.70
+  
+  - name: adaptive_control
+    difficulty: hard
+    description: Dynamically adjust thresholds and request maintenance when needed
+    max_steps: 30
+    success_criteria:
+      min_accuracy: 0.85
+      threshold_adjustments: 2
+      maintenance_requests: 1
+      min_defects_caught: 10
+      max_false_rate: 0.15
+
+observation_space:
+  type: object
+  properties:
+    current_product:
+      type: object
+      description: Current product being inspected
+      properties:
+        product_id: string
+        product_type: string
+        defects: array
+        defect_severity: string
+        quality_score: float
+        production_line: integer
+    queue_length:
+      type: integer
+      description: Number of products waiting for inspection
+    production_stats:
+      type: object
+      description: Current production statistics
+    recent_actions:
+      type: array
+      description: History of recent actions
+    machine_status:
+      type: object
+      description: Status of production machines
+    message:
+      type: string
+      description: Feedback or status message
+
+action_space:
+  type: object
+  properties:
+    action_type:
+      type: string
+      enum: [inspect, approve, reject, rework, escalate, adjust_threshold, request_maintenance]
+      description: Type of action to take
+    product_id:
+      type: string
+      description: Product ID (if applicable)
+    reason:
+      type: string
+      description: Reason for the action
+    threshold_value:
+      type: float
+      description: New threshold value (for adjust_threshold action)
+    notes:
+      type: string
+      description: Additional notes
+
+reward:
+  type: object
+  properties:
+    reward:
+      type: float
+      description: Reward value for the action
+    components:
+      type: object
+      description: Breakdown of reward components
+
+endpoints:
+  reset: /reset
+  step: /step
+  state: /state
+  health: /health
+  tasks: /tasks
+
+deployment:
+  platform: huggingface-spaces
+  docker: true
+  port: 7860
+  runtime_limit: 20m
+  resources:
+    vcpu: 2
+    memory: 8gb
