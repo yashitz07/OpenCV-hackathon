@@ -28,7 +28,10 @@ __all__ = [
     "ManufacturingQCEnv",
     "ManufacturingQCAction",
     "ManufacturingQCObservation",
-@@ -35,4 +35,4 @@
+    "ManufacturingQCReward",
+    "ManufacturingQCState",
+    "ActionType",
+    "DefectType",
     "ProductType",
     "DefectSeverity",
     "GRADERS",
