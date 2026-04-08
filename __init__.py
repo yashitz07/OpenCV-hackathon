@@ -21,10 +21,10 @@ from manufacturing_qc_env import (
     GRADERS,
 )
 
-__version__ = "1.0.0"
-__author__ = "OpenEnv Hackathon Participant"
+_version_ = "1.0.0"
+_author_ = "OpenEnv Hackathon Participant"
 
-__all__ = [
+_all_ = [
     "ManufacturingQCEnv",
     "ManufacturingQCAction",
     "ManufacturingQCObservation",
