@@ -21,17 +21,14 @@ from manufacturing_qc_env import (
     GRADERS,
 )
 
-_version_ = "1.0.0"
-_author_ = "OpenEnv Hackathon Participant"
+__version__ = "1.0.0"
+__author__ = "OpenEnv Hackathon Participant"
 
-_all_ = [
+__all__ = [
     "ManufacturingQCEnv",
     "ManufacturingQCAction",
     "ManufacturingQCObservation",
-    "ManufacturingQCReward",
-    "ManufacturingQCState",
-    "ActionType",
-    "DefectType",
+@@ -35,4 +35,4 @@
     "ProductType",
     "DefectSeverity",
     "GRADERS",
