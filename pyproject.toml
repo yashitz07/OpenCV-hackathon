@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "manufacturing-qc-env"
+version = "1.0.0"
+description = "Real-world manufacturing quality control environment for AI agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "OpenEnv Hackathon Participant"}
+]
+keywords = [
+    "openenv",
+    "manufacturing",
+    "quality-control",
+    "reinforcement-learning",
+    "ai-agents"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "pydantic>=2.9.2",
+    "openai>=1.54.4",
+    "fastapi>=0.115.4",
+    "uvicorn>=0.32.0",
+    "python-dotenv>=1.0.1",
+    "openenv-core>=0.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/manufacturing-qc-env"
+Documentation = "https://github.com/yourusername/manufacturing-qc-env#readme"
+Repository = "https://github.com/yourusername/manufacturing-qc-env"
+Issues = "https://github.com/yourusername/manufacturing-qc-env/issues"
+
+[project.scripts]
+server = "uvicorn:main"
+
+[tool.setuptools]
+packages = ["manufacturing_qc_env"]
+
+[tool.setuptools.package-dir]
+manufacturing_qc_env = "."
+
+[tool.openenv]
+environment_class = "manufacturing_qc_env:ManufacturingQCEnv"
+server_module = "server:app"
+
+[tool.openenv.tasks]
+basic_inspection = {difficulty = "easy", max_steps = 15}
+optimized_throughput = {difficulty = "medium", max_steps = 25}
+adaptive_control = {difficulty = "hard", max_steps = 30}
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
