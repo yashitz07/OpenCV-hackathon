@@ -311,6 +311,17 @@ def get_model_action(
     client: OpenAI, observation, step: int
 ) -> ManufacturingQCAction:
     """Get action from model"""
+    product_id = observation.current_product.product_id if observation.current_product else "NONE"
+    
+    # Fallback if client is None or API_KEY is missing
+    if client is None or not API_KEY:
+        print(f"[DEBUG] No API client available, using fallback action", flush=True)
+        return ManufacturingQCAction(
+            action_type=ActionType.APPROVE,
+            product_id=product_id,
+            reason="Fallback action - no API client",
+        )
+    
     user_prompt = build_user_prompt(observation, step)
     system_prompt = SYSTEM_PROMPTS.get(TASK_NAME, SYSTEM_PROMPTS["basic_inspection"])
     
@@ -327,7 +338,6 @@ def get_model_action(
         )
         
         response = (completion.choices[0].message.content or "").strip()
-        product_id = observation.current_product.product_id if observation.current_product else "NONE"
         
         return parse_model_response(response, product_id)
     
@@ -348,20 +358,40 @@ def get_model_action(
 
 async def main() -> None:
     """Main inference function"""
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-    
-    # Create environment
-    if IMAGE_NAME:
-        env = await ManufacturingQCEnv.from_docker_image(IMAGE_NAME, task_name=TASK_NAME)
-    else:
-        env = ManufacturingQCEnv(task_name=TASK_NAME)
-    
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
     success = False
+    env = None
+    client = None
     
-    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+    try:
+        # Initialize OpenAI client
+        if not API_KEY:
+            print(f"[DEBUG] Warning: No API_KEY set, model calls will use fallback", flush=True)
+        
+        client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "dummy-key")
+        
+        # Log start
+        log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+        
+        # Create environment with error handling
+        try:
+            if IMAGE_NAME:
+                print(f"[DEBUG] Creating environment from Docker image: {IMAGE_NAME}", flush=True)
+                env = await ManufacturingQCEnv.from_docker_image(IMAGE_NAME, task_name=TASK_NAME)
+            else:
+                print(f"[DEBUG] Creating local environment for task: {TASK_NAME}", flush=True)
+                env = ManufacturingQCEnv(task_name=TASK_NAME)
+        except Exception as e:
+            print(f"[DEBUG] Environment creation failed: {e}", flush=True)
+            print(f"[DEBUG] Falling back to local environment", flush=True)
+            env = ManufacturingQCEnv(task_name=TASK_NAME)
+        
+    except Exception as e:
+        print(f"[DEBUG] Initialization error: {e}", flush=True)
+        log_end(success=False, steps=0, score=0.0, rewards=[])
+        return
     
     try:
         # Reset environment
@@ -404,13 +434,25 @@ async def main() -> None:
         success = False
     
     finally:
-        try:
-            await env.close()
-        except Exception as e:
-            print(f"[DEBUG] env.close() error: {e}", flush=True)
+        if env is not None:
+            try:
+                await env.close()
+            except Exception as e:
+                print(f"[DEBUG] env.close() error: {e}", flush=True)
         
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n[DEBUG] Interrupted by user", flush=True)
+        exit(1)
+    except Exception as e:
+        print(f"[DEBUG] Fatal error: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        # Ensure we log end even on fatal error
+        print(f"[END] success=false steps=0 score=0.000 rewards=", flush=True)
+        exit(1)
