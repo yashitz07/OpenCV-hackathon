@@ -12,10 +12,7 @@ import sys
 import textwrap
 from typing import List, Optional
 
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None  # type: ignore
+from openai import OpenAI
 
 from manufacturing_qc_env import (
     ManufacturingQCAction,
@@ -29,10 +26,9 @@ from manufacturing_qc_env import (
 # ============================================================================
 
 IMAGE_NAME = os.getenv("IMAGE_NAME")  # For Docker deployment
-# IMPORTANT: Use API_KEY first (evaluator injects this), fallback to HF_TOKEN for local dev
-API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN") or ""
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 TASK_NAME = os.getenv("MANUFACTURING_QC_TASK", "basic_inspection")
 BENCHMARK = "manufacturing_qc"
 
@@ -313,20 +309,11 @@ def parse_model_response(response: str, product_id: str) -> ManufacturingQCActio
 
 
 def get_model_action(
-    client, observation, step: int
+    client: OpenAI, observation, step: int
 ) -> ManufacturingQCAction:
-    """Get action from model via the evaluator-provided LLM proxy"""
+    """Get action from model via the evaluator-provided LLM proxy.
+    Always makes a real API call — never skips."""
     product_id = observation.current_product.product_id if observation.current_product else "NONE"
-    
-    # Fallback only if openai package is missing (client could not be created)
-    if client is None:
-        print(f"[DEBUG] No API client available, using fallback action", file=sys.stderr, flush=True)
-        return ManufacturingQCAction(
-            action_type=ActionType.APPROVE,
-            product_id=product_id,
-            reason="Fallback action - no API client",
-        )
-    
     user_prompt = build_user_prompt(observation, step)
     system_prompt = SYSTEM_PROMPTS.get(TASK_NAME, SYSTEM_PROMPTS["basic_inspection"])
     
@@ -375,16 +362,13 @@ async def main() -> None:
     
     try:
         # Initialize OpenAI client using evaluator-provided credentials
-        print(f"[DEBUG] API_KEY set: {bool(API_KEY)}, API_BASE_URL: {API_BASE_URL}", file=sys.stderr, flush=True)
+        print(f"[DEBUG] API_KEY present: {bool(API_KEY)}, API_BASE_URL: {API_BASE_URL}, MODEL: {MODEL_NAME}", file=sys.stderr, flush=True)
         
-        if OpenAI is not None:
-            client = OpenAI(
-                base_url=API_BASE_URL,
-                api_key=API_KEY if API_KEY else "no-key-provided",
-            )
-            print(f"[DEBUG] OpenAI client created with base_url={API_BASE_URL}", file=sys.stderr, flush=True)
-        else:
-            print(f"[DEBUG] openai package not available, using fallback", file=sys.stderr, flush=True)
+        client = OpenAI(
+            base_url=API_BASE_URL,
+            api_key=API_KEY,
+        )
+        print(f"[DEBUG] OpenAI client created with base_url={API_BASE_URL}", file=sys.stderr, flush=True)
         
         # Create environment with error handling
         try:
