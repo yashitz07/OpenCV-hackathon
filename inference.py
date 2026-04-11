@@ -29,7 +29,8 @@ from manufacturing_qc_env import (
 # ============================================================================
 
 IMAGE_NAME = os.getenv("IMAGE_NAME")  # For Docker deployment
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+# IMPORTANT: Use API_KEY first (evaluator injects this), fallback to HF_TOKEN for local dev
+API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN") or ""
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 TASK_NAME = os.getenv("MANUFACTURING_QC_TASK", "basic_inspection")
@@ -312,13 +313,13 @@ def parse_model_response(response: str, product_id: str) -> ManufacturingQCActio
 
 
 def get_model_action(
-    client: OpenAI, observation, step: int
+    client, observation, step: int
 ) -> ManufacturingQCAction:
-    """Get action from model"""
+    """Get action from model via the evaluator-provided LLM proxy"""
     product_id = observation.current_product.product_id if observation.current_product else "NONE"
     
-    # Fallback if client is None or API_KEY is missing
-    if client is None or not API_KEY:
+    # Fallback only if openai package is missing (client could not be created)
+    if client is None:
         print(f"[DEBUG] No API client available, using fallback action", file=sys.stderr, flush=True)
         return ManufacturingQCAction(
             action_type=ActionType.APPROVE,
@@ -342,13 +343,13 @@ def get_model_action(
         )
         
         response = (completion.choices[0].message.content or "").strip()
+        print(f"[DEBUG] Model response: {response[:100]}", file=sys.stderr, flush=True)
         
         return parse_model_response(response, product_id)
     
     except Exception as exc:
         print(f"[DEBUG] Model request failed: {exc}", file=sys.stderr, flush=True)
         # Fallback to safe default
-        product_id = observation.current_product.product_id if observation.current_product else "NONE"
         return ManufacturingQCAction(
             action_type=ActionType.APPROVE,
             product_id=product_id,
@@ -373,12 +374,15 @@ async def main() -> None:
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
     
     try:
-        # Initialize OpenAI client
-        if not API_KEY:
-            print(f"[DEBUG] Warning: No API_KEY set, model calls will use fallback", file=sys.stderr, flush=True)
+        # Initialize OpenAI client using evaluator-provided credentials
+        print(f"[DEBUG] API_KEY set: {bool(API_KEY)}, API_BASE_URL: {API_BASE_URL}", file=sys.stderr, flush=True)
         
         if OpenAI is not None:
-            client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "dummy-key")
+            client = OpenAI(
+                base_url=API_BASE_URL,
+                api_key=API_KEY if API_KEY else "no-key-provided",
+            )
+            print(f"[DEBUG] OpenAI client created with base_url={API_BASE_URL}", file=sys.stderr, flush=True)
         else:
             print(f"[DEBUG] openai package not available, using fallback", file=sys.stderr, flush=True)
         

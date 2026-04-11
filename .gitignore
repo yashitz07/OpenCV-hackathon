@@ -63,3 +63,4 @@ tmp/
 .venv/
 .env
 __pycache__/
+._*
