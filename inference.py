@@ -8,10 +8,14 @@ Follows the mandatory stdout format for OpenEnv evaluation.
 
 import asyncio
 import os
+import sys
 import textwrap
 from typing import List, Optional
 
-from openai import OpenAI
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None  # type: ignore
 
 from manufacturing_qc_env import (
     ManufacturingQCAction,
@@ -315,7 +319,7 @@ def get_model_action(
     
     # Fallback if client is None or API_KEY is missing
     if client is None or not API_KEY:
-        print(f"[DEBUG] No API client available, using fallback action", flush=True)
+        print(f"[DEBUG] No API client available, using fallback action", file=sys.stderr, flush=True)
         return ManufacturingQCAction(
             action_type=ActionType.APPROVE,
             product_id=product_id,
@@ -342,7 +346,7 @@ def get_model_action(
         return parse_model_response(response, product_id)
     
     except Exception as exc:
-        print(f"[DEBUG] Model request failed: {exc}", flush=True)
+        print(f"[DEBUG] Model request failed: {exc}", file=sys.stderr, flush=True)
         # Fallback to safe default
         product_id = observation.current_product.product_id if observation.current_product else "NONE"
         return ManufacturingQCAction(
@@ -365,31 +369,34 @@ async def main() -> None:
     env = None
     client = None
     
+    # Log start IMMEDIATELY - must be the first structured output
+    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+    
     try:
         # Initialize OpenAI client
         if not API_KEY:
-            print(f"[DEBUG] Warning: No API_KEY set, model calls will use fallback", flush=True)
+            print(f"[DEBUG] Warning: No API_KEY set, model calls will use fallback", file=sys.stderr, flush=True)
         
-        client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "dummy-key")
-        
-        # Log start
-        log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+        if OpenAI is not None:
+            client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "dummy-key")
+        else:
+            print(f"[DEBUG] openai package not available, using fallback", file=sys.stderr, flush=True)
         
         # Create environment with error handling
         try:
             if IMAGE_NAME:
-                print(f"[DEBUG] Creating environment from Docker image: {IMAGE_NAME}", flush=True)
+                print(f"[DEBUG] Creating environment from Docker image: {IMAGE_NAME}", file=sys.stderr, flush=True)
                 env = await ManufacturingQCEnv.from_docker_image(IMAGE_NAME, task_name=TASK_NAME)
             else:
-                print(f"[DEBUG] Creating local environment for task: {TASK_NAME}", flush=True)
+                print(f"[DEBUG] Creating local environment for task: {TASK_NAME}", file=sys.stderr, flush=True)
                 env = ManufacturingQCEnv(task_name=TASK_NAME)
         except Exception as e:
-            print(f"[DEBUG] Environment creation failed: {e}", flush=True)
-            print(f"[DEBUG] Falling back to local environment", flush=True)
+            print(f"[DEBUG] Environment creation failed: {e}", file=sys.stderr, flush=True)
+            print(f"[DEBUG] Falling back to local environment", file=sys.stderr, flush=True)
             env = ManufacturingQCEnv(task_name=TASK_NAME)
         
     except Exception as e:
-        print(f"[DEBUG] Initialization error: {e}", flush=True)
+        print(f"[DEBUG] Initialization error: {e}", file=sys.stderr, flush=True)
         log_end(success=False, steps=0, score=0.0, rewards=[])
         return
     
@@ -430,7 +437,7 @@ async def main() -> None:
         success = score >= SUCCESS_SCORE_THRESHOLD
         
     except Exception as e:
-        print(f"[DEBUG] Episode error: {e}", flush=True)
+        print(f"[DEBUG] Episode error: {e}", file=sys.stderr, flush=True)
         success = False
     
     finally:
@@ -438,7 +445,7 @@ async def main() -> None:
             try:
                 await env.close()
             except Exception as e:
-                print(f"[DEBUG] env.close() error: {e}", flush=True)
+                print(f"[DEBUG] env.close() error: {e}", file=sys.stderr, flush=True)
         
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
@@ -447,12 +454,13 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n[DEBUG] Interrupted by user", flush=True)
+        print("\n[DEBUG] Interrupted by user", file=sys.stderr, flush=True)
         exit(1)
     except Exception as e:
-        print(f"[DEBUG] Fatal error: {e}", flush=True)
+        print(f"[DEBUG] Fatal error: {e}", file=sys.stderr, flush=True)
         import traceback
-        traceback.print_exc()
-        # Ensure we log end even on fatal error
+        traceback.print_exc(file=sys.stderr)
+        # Ensure we always have START+END pair on stdout for the evaluator
+        print(f"[START] task={TASK_NAME} env={BENCHMARK} model={MODEL_NAME}", flush=True)
         print(f"[END] success=false steps=0 score=0.000 rewards=", flush=True)
         exit(1)
