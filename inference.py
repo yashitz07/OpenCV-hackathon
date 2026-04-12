@@ -26,9 +26,8 @@ from manufacturing_qc_env import (
 # ============================================================================
 
 IMAGE_NAME = os.getenv("IMAGE_NAME")  # For Docker deployment
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 TASK_NAME = os.getenv("MANUFACTURING_QC_TASK", "basic_inspection")
 BENCHMARK = "manufacturing_qc"
 
@@ -361,12 +360,15 @@ async def main() -> None:
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
     
     try:
-        # Initialize OpenAI client using evaluator-provided credentials
-        print(f"[DEBUG] API_KEY present: {bool(API_KEY)}, API_BASE_URL: {API_BASE_URL}, MODEL: {MODEL_NAME}", file=sys.stderr, flush=True)
+        # Use API_KEY for the proxy (evaluator injects this).
+        # Fall back to HF_TOKEN only for local development.
+        api_key = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN") or ""
+        print(f"[DEBUG] API_KEY from env: {bool(os.environ.get('API_KEY'))}, HF_TOKEN from env: {bool(os.environ.get('HF_TOKEN'))}, using key: {'API_KEY' if os.environ.get('API_KEY') else 'HF_TOKEN'}", file=sys.stderr, flush=True)
+        print(f"[DEBUG] API_BASE_URL: {API_BASE_URL}, MODEL: {MODEL_NAME}", file=sys.stderr, flush=True)
         
         client = OpenAI(
             base_url=API_BASE_URL,
-            api_key=API_KEY,
+            api_key=api_key,
         )
         print(f"[DEBUG] OpenAI client created with base_url={API_BASE_URL}", file=sys.stderr, flush=True)
         
